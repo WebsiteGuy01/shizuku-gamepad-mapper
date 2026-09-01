@@ -13,11 +13,10 @@ jobs:
         run: gradle wrapper
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug -Pkotlin.compiler.isolatedProcess=false --stacktrace --info
+      - name: Clean and Build with Gradle
+        run: ./gradlew clean assembleDebug --stacktrace --info
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: gamepad-mapper-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          
