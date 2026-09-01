@@ -94,18 +94,7 @@ private fun openShizukuSettings(context: android.content.Context): String? {
         }
     }
 
-    val webIntent = Intent(
-        Intent.ACTION_VIEW,
-        Uri.parse("https://shizuku.rikka.app/")
-    )
-    return if (webIntent.resolveActivity(packageManager) != null) {
-        runCatching {
-            context.startActivity(webIntent)
-            "Shizuku is not installed. Opening the official download page."
-        }.getOrElse { "Shizuku is not installed on this device." }
-    } else {
-        "Shizuku is not installed. Install it from the official Shizuku website."
-    }
+    return "Shizuku is not installed. Install it from https://shizuku.rikka.app/"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
