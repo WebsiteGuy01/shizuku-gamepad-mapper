@@ -22,6 +22,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -64,23 +66,45 @@ class MainActivity : ComponentActivity() {
 
 private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
 
-private fun openShizukuSettings(context: android.content.Context) {
+private fun openShizukuSettings(context: android.content.Context): String? {
     val packageManager = context.packageManager
-    val launchIntent = packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
-    if (launchIntent != null) {
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(launchIntent)
-        return
+    val installed = runCatching {
+        packageManager.getApplicationInfo(SHIZUKU_PACKAGE, 0)
+        true
+    }.getOrDefault(false)
+
+    if (installed) {
+        val launchIntent = packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+        if (launchIntent != null) {
+            return runCatching {
+                context.startActivity(launchIntent)
+                null
+            }.getOrElse { "Could not open Shizuku: ${it.localizedMessage ?: it.javaClass.simpleName}" }
+        }
+
+        val appDetailsIntent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$SHIZUKU_PACKAGE")
+        )
+        if (appDetailsIntent.resolveActivity(packageManager) != null) {
+            return runCatching {
+                context.startActivity(appDetailsIntent)
+                null
+            }.getOrElse { "Could not open Shizuku app settings." }
+        }
     }
 
-    val appDetailsIntent = Intent(
-        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-        Uri.parse("package:$SHIZUKU_PACKAGE")
+    val webIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://shizuku.rikka.app/")
     )
-    try {
-        context.startActivity(appDetailsIntent)
-    } catch (_: ActivityNotFoundException) {
-        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+    return if (webIntent.resolveActivity(packageManager) != null) {
+        runCatching {
+            context.startActivity(webIntent)
+            "Shizuku is not installed. Opening the official download page."
+        }.getOrElse { "Shizuku is not installed on this device." }
+    } else {
+        "Shizuku is not installed. Install it from the official Shizuku website."
     }
 }
 
@@ -91,6 +115,7 @@ fun EngineSelectionScreen(repository: MappingRepository) {
     val scope = rememberCoroutineScope()
     val config by repository.config.collectAsState(initial = MappingConfig())
     val shizukuConnection = remember { ShizukuUserServiceConnection() }
+    val snackbarHostState = remember { SnackbarHostState() }
     // Re-read availability on each composition; the provider may be started
     // after the activity is first displayed.
     val shizukuAvailable = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
@@ -107,7 +132,8 @@ fun EngineSelectionScreen(repository: MappingRepository) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Gamepad Mapper") }) }
+        topBar = { TopAppBar(title = { Text("Gamepad Mapper") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -148,7 +174,9 @@ fun EngineSelectionScreen(repository: MappingRepository) {
             if (!shizukuAvailable) {
                 Button(
                     onClick = {
-                        openShizukuSettings(context)
+                        openShizukuSettings(context)?.let { message ->
+                            scope.launch { snackbarHostState.showSnackbar(message) }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
