@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.content.ActivityNotFoundException
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +59,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+
+private fun openShizukuSettings(context: android.content.Context) {
+    val packageManager = context.packageManager
+    val launchIntent = packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+    if (launchIntent != null) {
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(launchIntent)
+        return
+    }
+
+    val appDetailsIntent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:$SHIZUKU_PACKAGE")
+    )
+    try {
+        context.startActivity(appDetailsIntent)
+    } catch (_: ActivityNotFoundException) {
+        context.startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 }
 
@@ -125,12 +148,7 @@ fun EngineSelectionScreen(repository: MappingRepository) {
             if (!shizukuAvailable) {
                 Button(
                     onClick = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.parse("package:rikka.shizuku")
-                            )
-                        )
+                        openShizukuSettings(context)
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
